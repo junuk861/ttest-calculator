@@ -1,164 +1,436 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Advanced t-test Calculator</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>t-test Calculator</title>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    body { font-family: Arial; margin: 40px; }
-    textarea { width: 300px; height: 60px; }
-    canvas { margin-top: 20px; }
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #667085;
+      --line: #d8dee8;
+      --accent: #276ef1;
+      --accent-dark: #174ea6;
+      --danger: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      width: min(980px, calc(100% - 32px));
+      margin: 28px auto 48px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 4px;
+      font-size: clamp(1.7rem, 3vw, 2.3rem);
+    }
+
+    .nav-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 10px 24px rgba(20, 30, 45, 0.05);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      font: inherit;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 88px;
+      padding: 10px;
+      resize: vertical;
+    }
+
+    select {
+      min-height: 42px;
+      padding: 8px 10px;
+    }
+
+    .field { margin-bottom: 16px; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    button {
+      width: 100%;
+      min-height: 44px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+    }
+
+    button:hover { background: var(--accent-dark); }
+
+    .message {
+      display: none;
+      margin-bottom: 16px;
+      border: 1px solid #f5c2c0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #fff3f2;
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    .result-table th,
+    .result-table td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .result-table th {
+      color: var(--muted);
+      font-size: 0.86rem;
+      text-transform: uppercase;
+    }
+
+    .stars {
+      display: inline-block;
+      min-width: 42px;
+      color: var(--accent-dark);
+      font-weight: 800;
+    }
+
+    .chart-wrap {
+      height: 320px;
+      margin-top: 18px;
+    }
+
+    .empty {
+      color: var(--muted);
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 760px) {
+      header,
+      .grid {
+        display: block;
+      }
+
+      .nav-link {
+        display: inline-block;
+        margin-top: 8px;
+      }
+
+      section {
+        margin-bottom: 16px;
+        padding: 16px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
 <body>
+  <main>
+    <header>
+      <div>
+        <h1>t-test Calculator</h1>
+        <p class="empty">Welch, equal-variance, and paired t-tests with directional p-values.</p>
+      </div>
+      <a class="nav-link" href="anova.html">Open ANOVA Calculator</a>
+    </header>
 
-<h2>Advanced t-test Calculator</h2>
+    <div class="grid">
+      <section>
+        <h2>Input</h2>
 
-<h3>Input</h3>
-<textarea id="g1" placeholder="Group 1 (comma separated)"></textarea><br>
-<textarea id="g2" placeholder="Group 2 (comma separated)"></textarea><br><br>
+        <div id="message" class="message"></div>
 
-<select id="testType">
-  <option value="welch">Unpaired (Welch)</option>
-  <option value="student">Unpaired (Equal variance)</option>
-  <option value="paired">Paired</option>
-</select>
+        <div class="field">
+          <label for="g1">Group 1</label>
+          <textarea id="g1" placeholder="Example: 4.2, 5.1, 5.5, 6.0"></textarea>
+        </div>
 
-<select id="tail">
-  <option value="two">Two-tailed</option>
-  <option value="one">One-tailed</option>
-</select>
+        <div class="field">
+          <label for="g2">Group 2</label>
+          <textarea id="g2" placeholder="Example: 3.8, 4.0, 4.4, 5.2"></textarea>
+        </div>
 
-<br><br>
-<button onclick="runTest()">Calculate</button>
+        <div class="controls">
+          <div>
+            <label for="testType">Test type</label>
+            <select id="testType">
+              <option value="welch">Unpaired Welch</option>
+              <option value="student">Unpaired equal variance</option>
+              <option value="paired">Paired</option>
+            </select>
+          </div>
 
-<h3>Result</h3>
-<div id="result"></div>
+          <div>
+            <label for="tail">Alternative hypothesis</label>
+            <select id="tail">
+              <option value="two">Group 1 != Group 2</option>
+              <option value="greater">Group 1 > Group 2</option>
+              <option value="less">Group 1 < Group 2</option>
+            </select>
+          </div>
+        </div>
 
-<canvas id="plot" width="400" height="300"></canvas>
+        <button onclick="runTest()">Calculate</button>
+      </section>
 
-<script>
+      <section>
+        <h2>Result</h2>
+        <div id="result">
+          <p class="empty">Enter two groups and calculate to see the summary.</p>
+        </div>
 
-function parseInput(str){
-  return str.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
-}
+        <div class="chart-wrap">
+          <canvas id="plot"></canvas>
+        </div>
+      </section>
+    </div>
+  </main>
 
-function mean(a){ return a.reduce((x,y)=>x+y,0)/a.length; }
-
-function variance(a,m){
-  return a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1);
-}
-
-function sem(a){
-  return Math.sqrt(variance(a,mean(a))/a.length);
-}
-
-function runTest(){
-
-  let g1 = parseInput(document.getElementById("g1").value);
-  let g2 = parseInput(document.getElementById("g2").value);
-
-  if(g1.length < 2 || g2.length < 2){
-    alert("Each group needs at least 2 values");
-    return;
-  }
-
-  let type = document.getElementById("testType").value;
-  let tail = document.getElementById("tail").value;
-
-  let m1 = mean(g1), m2 = mean(g2);
-  let v1 = variance(g1,m1), v2 = variance(g2,m2);
-  let n1 = g1.length, n2 = g2.length;
-
-  let t, df;
-
-  if(type === "paired"){
-    if(g1.length !== g2.length){
-      alert("Paired test requires same length");
-      return;
+  <script>
+    function parseInput(str) {
+      return str
+        .split(/[\s,;]+/)
+        .map(x => parseFloat(x.trim()))
+        .filter(x => Number.isFinite(x));
     }
-    let diff = g1.map((x,i)=>x - g2[i]);
-    let md = mean(diff);
-    let vd = variance(diff, md);
-    t = md / Math.sqrt(vd / diff.length);
-    df = diff.length - 1;
-  }
 
-  else if(type === "student"){
-    let pooled = ((n1-1)*v1 + (n2-1)*v2)/(n1+n2-2);
-    t = (m1-m2)/Math.sqrt(pooled*(1/n1 + 1/n2));
-    df = n1+n2-2;
-  }
+    function mean(a) {
+      return a.reduce((x, y) => x + y, 0) / a.length;
+    }
 
-  else{ // Welch
-    t = (m1-m2)/Math.sqrt(v1/n1 + v2/n2);
-    df = Math.pow(v1/n1 + v2/n2,2) /
-         ((Math.pow(v1/n1,2)/(n1-1)) + (Math.pow(v2/n2,2)/(n2-1)));
-  }
+    function variance(a, m) {
+      return a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1);
+    }
 
-  let p;
+    function sem(a) {
+      return Math.sqrt(variance(a, mean(a)) / a.length);
+    }
 
-  if(tail === "two"){
-    p = 2*(1 - jStat.studentt.cdf(Math.abs(t), df));
-  } else {
-    p = 1 - jStat.studentt.cdf(Math.abs(t), df);
-  }
+    function showMessage(text) {
+      const message = document.getElementById("message");
+      message.textContent = text;
+      message.style.display = text ? "block" : "none";
+    }
 
-  let stars = "";
-  if(p < 0.001) stars = "***";
-  else if(p < 0.01) stars = "**";
-  else if(p < 0.05) stars = "*";
-  else stars = "ns";
+    function starsForP(p) {
+      if (p < 0.001) return "***";
+      if (p < 0.01) return "**";
+      if (p < 0.05) return "*";
+      return "ns";
+    }
 
-  document.getElementById("result").innerHTML =
-    `Mean1 = ${m1.toFixed(2)} ± ${sem(g1).toFixed(2)}<br>
-     Mean2 = ${m2.toFixed(2)} ± ${sem(g2).toFixed(2)}<br>
-     t = ${t.toFixed(3)}<br>
-     df = ${df.toFixed(2)}<br>
-     p = ${p.toExponential(3)} (${stars})`;
+    function formatP(p) {
+      return p < 0.001 ? p.toExponential(3) : p.toFixed(4);
+    }
 
-  drawPlot(g1,g2);
-}
+    function pValueForTail(t, df, tail) {
+      if (tail === "two") {
+        return 2 * (1 - jStat.studentt.cdf(Math.abs(t), df));
+      }
 
-function drawPlot(g1,g2){
+      if (tail === "greater") {
+        return 1 - jStat.studentt.cdf(t, df);
+      }
 
-  let ctx = document.getElementById('plot').getContext('2d');
+      return jStat.studentt.cdf(t, df);
+    }
 
-  if(window.chart) window.chart.destroy();
+    function validateFiniteResult(t, df) {
+      return Number.isFinite(t) && Number.isFinite(df) && df > 0;
+    }
 
-  window.chart = new Chart(ctx,{
-    type: 'scatter',
-    data:{
-      datasets:[
-        {
-          label:'Group 1',
-          data: g1.map(y=>({x:1,y:y}))
-        },
-        {
-          label:'Group 2',
-          data: g2.map(y=>({x:2,y:y}))
+    function runTest() {
+      showMessage("");
+
+      const g1 = parseInput(document.getElementById("g1").value);
+      const g2 = parseInput(document.getElementById("g2").value);
+
+      if (g1.length < 2 || g2.length < 2) {
+        showMessage("Each group needs at least 2 numeric values.");
+        return;
+      }
+
+      const type = document.getElementById("testType").value;
+      const tail = document.getElementById("tail").value;
+
+      const m1 = mean(g1);
+      const m2 = mean(g2);
+      const v1 = variance(g1, m1);
+      const v2 = variance(g2, m2);
+      const n1 = g1.length;
+      const n2 = g2.length;
+
+      let t;
+      let df;
+
+      if (type === "paired") {
+        if (g1.length !== g2.length) {
+          showMessage("Paired t-test requires the same number of values in both groups.");
+          return;
         }
-      ]
-    },
-    options:{
-      scales:{
-        x:{
-          ticks:{
-            callback: function(value){
-              if(value==1) return "G1";
-              if(value==2) return "G2";
+
+        const diff = g1.map((x, i) => x - g2[i]);
+        const md = mean(diff);
+        const vd = variance(diff, md);
+        t = md / Math.sqrt(vd / diff.length);
+        df = diff.length - 1;
+      } else if (type === "student") {
+        const pooled = ((n1 - 1) * v1 + (n2 - 1) * v2) / (n1 + n2 - 2);
+        t = (m1 - m2) / Math.sqrt(pooled * (1 / n1 + 1 / n2));
+        df = n1 + n2 - 2;
+      } else {
+        const se2 = v1 / n1 + v2 / n2;
+        t = (m1 - m2) / Math.sqrt(se2);
+        df = se2 ** 2 / (((v1 / n1) ** 2 / (n1 - 1)) + ((v2 / n2) ** 2 / (n2 - 1)));
+      }
+
+      if (!validateFiniteResult(t, df)) {
+        showMessage("The test could not be calculated. Check for identical values or too little variation.");
+        return;
+      }
+
+      const p = Math.min(Math.max(pValueForTail(t, df, tail), 0), 1);
+      const stars = starsForP(p);
+
+      document.getElementById("result").innerHTML = `
+        <table class="result-table">
+          <tr><th>Metric</th><th>Value</th></tr>
+          <tr><td>Group 1</td><td>${m1.toFixed(3)} &plusmn; ${sem(g1).toFixed(3)} SEM, n = ${n1}</td></tr>
+          <tr><td>Group 2</td><td>${m2.toFixed(3)} &plusmn; ${sem(g2).toFixed(3)} SEM, n = ${n2}</td></tr>
+          <tr><td>t</td><td>${t.toFixed(3)}</td></tr>
+          <tr><td>df</td><td>${df.toFixed(2)}</td></tr>
+          <tr><td>p</td><td>${formatP(p)} <span class="stars">${stars}</span></td></tr>
+        </table>
+      `;
+
+      drawPlot(g1, g2, m1, m2);
+    }
+
+    function jitter(index) {
+      return ((index % 5) - 2) * 0.035;
+    }
+
+    function drawPlot(g1, g2, m1, m2) {
+      const ctx = document.getElementById("plot").getContext("2d");
+
+      if (window.chart) window.chart.destroy();
+
+      window.chart = new Chart(ctx, {
+        type: "scatter",
+        data: {
+          datasets: [
+            {
+              label: "Group 1 values",
+              data: g1.map((y, i) => ({ x: 1 + jitter(i), y })),
+              backgroundColor: "#276ef1"
+            },
+            {
+              label: "Group 2 values",
+              data: g2.map((y, i) => ({ x: 2 + jitter(i), y })),
+              backgroundColor: "#d92d20"
+            },
+            {
+              label: "Group means",
+              data: [{ x: 1, y: m1 }, { x: 2, y: m2 }],
+              type: "line",
+              borderColor: "#17202a",
+              backgroundColor: "#17202a",
+              pointRadius: 7,
+              pointStyle: "rectRounded",
+              showLine: false
+            }
+          ]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom" }
+          },
+          scales: {
+            x: {
+              min: 0.5,
+              max: 2.5,
+              ticks: {
+                stepSize: 1,
+                callback: value => value === 1 ? "Group 1" : value === 2 ? "Group 2" : ""
+              }
+            },
+            y: {
+              title: { display: true, text: "Value" }
             }
           }
         }
-      }
+      });
     }
-  });
-}
-
-</script>
-
+  </script>
 </body>
 </html>
