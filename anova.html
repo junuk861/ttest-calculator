@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ANOVA Calculator</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
+
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    textarea { width: 300px; height: 60px; margin-bottom:10px;}
+  </style>
+</head>
+
+<body>
+
+<h2>One-way ANOVA + Bonferroni</h2>
+
+<p>Enter each group (comma separated):</p>
+
+<textarea id="g1" placeholder="Group 1"></textarea><br>
+<textarea id="g2" placeholder="Group 2"></textarea><br>
+<textarea id="g3" placeholder="Group 3"></textarea><br>
+<textarea id="g4" placeholder="Group 4 (optional)"></textarea><br>
+
+<button onclick="runANOVA()">Calculate</button>
+
+<h3>Result</h3>
+<div id="result"></div>
+
+<script>
+
+function parseInput(str){
+  return str.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
+}
+
+function mean(a){ return a.reduce((x,y)=>x+y,0)/a.length; }
+
+function variance(a,m){
+  return a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1);
+}
+
+function runANOVA(){
+
+  let groups = [
+    parseInput(document.getElementById("g1").value),
+    parseInput(document.getElementById("g2").value),
+    parseInput(document.getElementById("g3").value),
+    parseInput(document.getElementById("g4").value)
+  ].filter(g => g.length > 0);
+
+  let k = groups.length;
+  let all = groups.flat();
+
+  let grandMean = mean(all);
+
+  let ssBetween = 0;
+  let ssWithin = 0;
+  let totalN = 0;
+
+  groups.forEach(g=>{
+    let m = mean(g);
+    ssBetween += g.length * (m - grandMean)**2;
+
+    g.forEach(x=>{
+      ssWithin += (x - m)**2;
+    });
+
+    totalN += g.length;
+  });
+
+  let dfBetween = k - 1;
+  let dfWithin = totalN - k;
+
+  let msBetween = ssBetween / dfBetween;
+  let msWithin = ssWithin / dfWithin;
+
+  let F = msBetween / msWithin;
+
+  let p = 1 - jStat.centralF.cdf(F, dfBetween, dfWithin);
+
+  let resultText = `
+  ANOVA:<br>
+  F(${dfBetween}, ${dfWithin}) = ${F.toFixed(3)}<br>
+  p = ${p.toExponential(3)}<br><br>
+  Post hoc (Bonferroni):<br>
+  `;
+
+  // Bonferroni
+  let comparisons = k*(k-1)/2;
+
+  for(let i=0;i<k;i++){
+    for(let j=i+1;j<k;j++){
+
+      let g1 = groups[i];
+      let g2 = groups[j];
+
+      let m1 = mean(g1), m2 = mean(g2);
+      let v1 = variance(g1,m1), v2 = variance(g2,m2);
+
+      let t = (m1-m2)/Math.sqrt(v1/g1.length + v2/g2.length);
+
+      let df = Math.pow(v1/g1.length + v2/g2.length,2) /
+               ((Math.pow(v1/g1.length,2)/(g1.length-1)) +
+                (Math.pow(v2/g2.length,2)/(g2.length-1)));
+
+      let pRaw = 2*(1 - jStat.studentt.cdf(Math.abs(t), df));
+      let pAdj = Math.min(pRaw * comparisons, 1);
+
+      let stars = "";
+      if(pAdj < 0.001) stars = "***";
+      else if(pAdj < 0.01) stars = "**";
+      else if(pAdj < 0.05) stars = "*";
+      else stars = "ns";
+
+      resultText += `G${i+1} vs G${j+1}: p = ${pAdj.toExponential(3)} (${stars})<br>`;
+    }
+  }
+
+  document.getElementById("result").innerHTML = resultText;
+}
+
+</script>
+
+</body>
+</html>
