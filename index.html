@@ -5,18 +5,31 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    textarea { width: 300px; height: 60px; }
+    canvas { margin-top: 20px; }
+  </style>
 </head>
 
 <body>
+
 <h2>Advanced t-test Calculator</h2>
 
 <h3>Input</h3>
-<textarea id="g1" rows="3" cols="40"></textarea><br>
-<textarea id="g2" rows="3" cols="40"></textarea><br><br>
+<textarea id="g1" placeholder="Group 1 (comma separated)"></textarea><br>
+<textarea id="g2" placeholder="Group 2 (comma separated)"></textarea><br><br>
 
 <select id="testType">
   <option value="welch">Unpaired (Welch)</option>
   <option value="student">Unpaired (Equal variance)</option>
+  <option value="paired">Paired</option>
+</select>
+
+<select id="tail">
+  <option value="two">Two-tailed</option>
+  <option value="one">One-tailed</option>
 </select>
 
 <br><br>
@@ -25,7 +38,10 @@
 <h3>Result</h3>
 <div id="result"></div>
 
+<canvas id="plot" width="400" height="300"></canvas>
+
 <script>
+
 function parseInput(str){
   return str.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
 }
@@ -36,18 +52,112 @@ function variance(a,m){
   return a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1);
 }
 
+function sem(a){
+  return Math.sqrt(variance(a,mean(a))/a.length);
+}
+
 function runTest(){
+
   let g1 = parseInput(document.getElementById("g1").value);
   let g2 = parseInput(document.getElementById("g2").value);
 
+  if(g1.length < 2 || g2.length < 2){
+    alert("Each group needs at least 2 values");
+    return;
+  }
+
+  let type = document.getElementById("testType").value;
+  let tail = document.getElementById("tail").value;
+
   let m1 = mean(g1), m2 = mean(g2);
   let v1 = variance(g1,m1), v2 = variance(g2,m2);
+  let n1 = g1.length, n2 = g2.length;
 
-  let t = (m1-m2)/Math.sqrt(v1/g1.length + v2/g2.length);
+  let t, df;
+
+  if(type === "paired"){
+    if(g1.length !== g2.length){
+      alert("Paired test requires same length");
+      return;
+    }
+    let diff = g1.map((x,i)=>x - g2[i]);
+    let md = mean(diff);
+    let vd = variance(diff, md);
+    t = md / Math.sqrt(vd / diff.length);
+    df = diff.length - 1;
+  }
+
+  else if(type === "student"){
+    let pooled = ((n1-1)*v1 + (n2-1)*v2)/(n1+n2-2);
+    t = (m1-m2)/Math.sqrt(pooled*(1/n1 + 1/n2));
+    df = n1+n2-2;
+  }
+
+  else{ // Welch
+    t = (m1-m2)/Math.sqrt(v1/n1 + v2/n2);
+    df = Math.pow(v1/n1 + v2/n2,2) /
+         ((Math.pow(v1/n1,2)/(n1-1)) + (Math.pow(v2/n2,2)/(n2-1)));
+  }
+
+  let p;
+
+  if(tail === "two"){
+    p = 2*(1 - jStat.studentt.cdf(Math.abs(t), df));
+  } else {
+    p = 1 - jStat.studentt.cdf(Math.abs(t), df);
+  }
+
+  let stars = "";
+  if(p < 0.001) stars = "***";
+  else if(p < 0.01) stars = "**";
+  else if(p < 0.05) stars = "*";
+  else stars = "ns";
 
   document.getElementById("result").innerHTML =
-    "t = " + t.toFixed(4);
+    `Mean1 = ${m1.toFixed(2)} ± ${sem(g1).toFixed(2)}<br>
+     Mean2 = ${m2.toFixed(2)} ± ${sem(g2).toFixed(2)}<br>
+     t = ${t.toFixed(3)}<br>
+     df = ${df.toFixed(2)}<br>
+     p = ${p.toExponential(3)} (${stars})`;
+
+  drawPlot(g1,g2);
 }
+
+function drawPlot(g1,g2){
+
+  let ctx = document.getElementById('plot').getContext('2d');
+
+  if(window.chart) window.chart.destroy();
+
+  window.chart = new Chart(ctx,{
+    type: 'scatter',
+    data:{
+      datasets:[
+        {
+          label:'Group 1',
+          data: g1.map(y=>({x:1,y:y}))
+        },
+        {
+          label:'Group 2',
+          data: g2.map(y=>({x:2,y:y}))
+        }
+      ]
+    },
+    options:{
+      scales:{
+        x:{
+          ticks:{
+            callback: function(value){
+              if(value==1) return "G1";
+              if(value==2) return "G2";
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
 </script>
 
 </body>
