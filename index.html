@@ -1,183 +1,54 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!DOCTYPE html>
 <html>
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2685.5">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
-  </style>
+  <title>Advanced t-test Calculator</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
-<p class="p1">&lt;!DOCTYPE html&gt;</p>
-<p class="p1">&lt;html&gt;</p>
-<p class="p1">&lt;head&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;Advanced t-test Calculator&lt;/title&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- jStat (정확한 p-value) --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"&gt;&lt;/script&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Chart.js --&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;/head&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;body&gt;</p>
-<p class="p1">&lt;h2&gt;Advanced t-test Calculator&lt;/h2&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;h3&gt;Input&lt;/h3&gt;</p>
-<p class="p1">&lt;textarea id="g1" rows="3" cols="40" placeholder="Group 1 (comma separated)"&gt;&lt;/textarea&gt;&lt;br&gt;</p>
-<p class="p1">&lt;textarea id="g2" rows="3" cols="40" placeholder="Group 2 (comma separated)"&gt;&lt;/textarea&gt;&lt;br&gt;&lt;br&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;input type="file" id="csvFile"&gt;&lt;br&gt;&lt;br&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;select id="testType"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;option value="welch"&gt;Unpaired (Welch)&lt;/option&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;option value="student"&gt;Unpaired (Equal variance)&lt;/option&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;option value="paired"&gt;Paired t-test&lt;/option&gt;</p>
-<p class="p1">&lt;/select&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;select id="tail"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;option value="two"&gt;Two-tailed&lt;/option&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;option value="one"&gt;One-tailed&lt;/option&gt;</p>
-<p class="p1">&lt;/select&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;br&gt;&lt;br&gt;</p>
-<p class="p1">&lt;button onclick="runTest()"&gt;Calculate&lt;/button&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;h3&gt;Result&lt;/h3&gt;</p>
-<p class="p1">&lt;div id="result"&gt;&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;canvas id="plot" width="400" height="300"&gt;&lt;/canvas&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;script&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">function parseInput(str){</p>
-<p class="p1"><span class="Apple-converted-space">  </span>return str.split(',').map(x=&gt;parseFloat(x.trim())).filter(x=&gt;!isNaN(x));</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function mean(a){ return a.reduce((x,y)=&gt;x+y,0)/a.length; }</p>
-<p class="p2"><br></p>
-<p class="p1">function variance(a,m){</p>
-<p class="p1"><span class="Apple-converted-space">  </span>return a.reduce((x,y)=&gt;x+(y-m)**2,0)/(a.length-1);</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function sem(a){</p>
-<p class="p1"><span class="Apple-converted-space">  </span>return Math.sqrt(variance(a,mean(a))/a.length);</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function runTest(){</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let g1 = parseInput(document.getElementById("g1").value);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let g2 = parseInput(document.getElementById("g2").value);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let type = document.getElementById("testType").value;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let tail = document.getElementById("tail").value;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let m1 = mean(g1), m2 = mean(g2);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let v1 = variance(g1,m1), v2 = variance(g2,m2);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let n1 = g1.length, n2 = g2.length;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let t, df;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>if(type === "paired"){</p>
-<p class="p1"><span class="Apple-converted-space">    </span>let diff = g1.map((x,i)=&gt;x - g2[i]);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>let md = mean(diff);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>let vd = variance(diff, md);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>t = md / Math.sqrt(vd / diff.length);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>df = diff.length - 1;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>else if(type === "student"){</p>
-<p class="p1"><span class="Apple-converted-space">    </span>let pooled = ((n1-1)*v1 + (n2-1)*v2)/(n1+n2-2);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>t = (m1-m2)/Math.sqrt(pooled*(1/n1 + 1/n2));</p>
-<p class="p1"><span class="Apple-converted-space">    </span>df = n1+n2-2;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>else{ // Welch</p>
-<p class="p1"><span class="Apple-converted-space">    </span>t = (m1-m2)/Math.sqrt(v1/n1 + v2/n2);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>df = Math.pow(v1/n1 + v2/n2,2) /</p>
-<p class="p1"><span class="Apple-converted-space">         </span>((Math.pow(v1/n1,2)/(n1-1)) + (Math.pow(v2/n2,2)/(n2-1)));</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let p;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>if(tail === "two"){</p>
-<p class="p1"><span class="Apple-converted-space">    </span>p = 2*(1 - jStat.studentt.cdf(Math.abs(t), df));</p>
-<p class="p1"><span class="Apple-converted-space">  </span>} else {</p>
-<p class="p1"><span class="Apple-converted-space">    </span>p = 1 - jStat.studentt.cdf(Math.abs(t), df);</p>
-<p class="p1"><span class="Apple-converted-space">  </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById("result").innerHTML =</p>
-<p class="p1"><span class="Apple-converted-space">    </span>`Mean1 = ${m1.toFixed(3)} ± ${sem(g1).toFixed(3)}&lt;br&gt;</p>
-<p class="p1"><span class="Apple-converted-space">     </span>Mean2 = ${m2.toFixed(3)} ± ${sem(g2).toFixed(3)}&lt;br&gt;</p>
-<p class="p1"><span class="Apple-converted-space">     </span>t = ${t.toFixed(4)}&lt;br&gt;</p>
-<p class="p1"><span class="Apple-converted-space">     </span>df = ${df.toFixed(2)}&lt;br&gt;</p>
-<p class="p1"><span class="Apple-converted-space">     </span>p = ${p.toExponential(3)}`;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>drawPlot(g1,g2);</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">function drawPlot(g1,g2){</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>let ctx = document.getElementById('plot').getContext('2d');</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>if(window.chart) window.chart.destroy();</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>window.chart = new Chart(ctx,{</p>
-<p class="p1"><span class="Apple-converted-space">    </span>type: 'scatter',</p>
-<p class="p1"><span class="Apple-converted-space">    </span>data:{</p>
-<p class="p1"><span class="Apple-converted-space">      </span>datasets:[</p>
-<p class="p1"><span class="Apple-converted-space">        </span>{</p>
-<p class="p1"><span class="Apple-converted-space">          </span>label:'Group1',</p>
-<p class="p1"><span class="Apple-converted-space">          </span>data: g1.map((y)=&gt;({x:1,y:y}))</p>
-<p class="p1"><span class="Apple-converted-space">        </span>},</p>
-<p class="p1"><span class="Apple-converted-space">        </span>{</p>
-<p class="p1"><span class="Apple-converted-space">          </span>label:'Group2',</p>
-<p class="p1"><span class="Apple-converted-space">          </span>data: g2.map((y)=&gt;({x:2,y:y}))</p>
-<p class="p1"><span class="Apple-converted-space">        </span>}</p>
-<p class="p1"><span class="Apple-converted-space">      </span>]</p>
-<p class="p1"><span class="Apple-converted-space">    </span>},</p>
-<p class="p1"><span class="Apple-converted-space">    </span>options:{</p>
-<p class="p1"><span class="Apple-converted-space">      </span>scales:{</p>
-<p class="p1"><span class="Apple-converted-space">        </span>x:{ticks:{callback:(v)=&gt;v==1?'G1':'G2'}}</p>
-<p class="p1"><span class="Apple-converted-space">      </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">  </span>});</p>
-<p class="p1">}</p>
-<p class="p2"><br></p>
-<p class="p1">// CSV 업로드</p>
-<p class="p1">document.getElementById("csvFile").addEventListener("change", function(e){</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let file = e.target.files[0];</p>
-<p class="p1"><span class="Apple-converted-space">  </span>let reader = new FileReader();</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>reader.onload = function(e){</p>
-<p class="p1"><span class="Apple-converted-space">    </span>let rows = e.target.result.split("\n");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>let g1 = [], g2 = [];</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>rows.forEach(r=&gt;{</p>
-<p class="p1"><span class="Apple-converted-space">      </span>let cols = r.split(",");</p>
-<p class="p1"><span class="Apple-converted-space">      </span>if(cols.length&gt;=2){</p>
-<p class="p1"><span class="Apple-converted-space">        </span>g1.push(parseFloat(cols[0]));</p>
-<p class="p1"><span class="Apple-converted-space">        </span>g2.push(parseFloat(cols[1]));</p>
-<p class="p1"><span class="Apple-converted-space">      </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>});</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>document.getElementById("g1").value = g1.join(",");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>document.getElementById("g2").value = g2.join(",");</p>
-<p class="p1"><span class="Apple-converted-space">  </span>};</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>reader.readAsText(file);</p>
-<p class="p1">});</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;/script&gt;</p>
-<p class="p2"><br></p>
-<p class="p1">&lt;/body&gt;</p>
-<p class="p1">&lt;/html&gt;</p>
+<h2>Advanced t-test Calculator</h2>
+
+<h3>Input</h3>
+<textarea id="g1" rows="3" cols="40"></textarea><br>
+<textarea id="g2" rows="3" cols="40"></textarea><br><br>
+
+<select id="testType">
+  <option value="welch">Unpaired (Welch)</option>
+  <option value="student">Unpaired (Equal variance)</option>
+</select>
+
+<br><br>
+<button onclick="runTest()">Calculate</button>
+
+<h3>Result</h3>
+<div id="result"></div>
+
+<script>
+function parseInput(str){
+  return str.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
+}
+
+function mean(a){ return a.reduce((x,y)=>x+y,0)/a.length; }
+
+function variance(a,m){
+  return a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1);
+}
+
+function runTest(){
+  let g1 = parseInput(document.getElementById("g1").value);
+  let g2 = parseInput(document.getElementById("g2").value);
+
+  let m1 = mean(g1), m2 = mean(g2);
+  let v1 = variance(g1,m1), v2 = variance(g2,m2);
+
+  let t = (m1-m2)/Math.sqrt(v1/g1.length + v2/g2.length);
+
+  document.getElementById("result").innerHTML =
+    "t = " + t.toFixed(4);
+}
+</script>
+
 </body>
 </html>
