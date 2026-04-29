@@ -7,6 +7,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
     :root {
@@ -122,6 +123,29 @@
 
     button:hover { background: var(--accent-dark); }
 
+    button.secondary {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+    }
+
+    button.secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent-dark);
+      background: #eef4ff;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
     .message {
       display: none;
       margin-bottom: 16px;
@@ -189,6 +213,10 @@
       .controls {
         grid-template-columns: 1fr;
       }
+
+      .button-row {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -239,7 +267,10 @@
           </div>
         </div>
 
-        <button onclick="runTest()">Calculate</button>
+        <div class="button-row">
+          <button onclick="runTest()">Calculate</button>
+          <button id="exportButton" class="secondary" onclick="exportExcel()" disabled>Export Excel</button>
+        </div>
       </section>
 
       <section>
@@ -256,6 +287,8 @@
   </main>
 
   <script>
+    let latestTTestExport = null;
+
     function parseInput(str) {
       return str
         .split(/[\s,;]+/)
@@ -306,6 +339,18 @@
 
     function validateFiniteResult(t, df) {
       return Number.isFinite(t) && Number.isFinite(df) && df > 0;
+    }
+
+    function testTypeLabel(type) {
+      if (type === "paired") return "Paired t-test";
+      if (type === "student") return "Unpaired equal variance t-test";
+      return "Unpaired Welch t-test";
+    }
+
+    function tailLabel(tail) {
+      if (tail === "greater") return "Group 1 > Group 2";
+      if (tail === "less") return "Group 1 < Group 2";
+      return "Group 1 != Group 2";
     }
 
     function runTest() {
@@ -360,12 +405,42 @@
 
       const p = Math.min(Math.max(pValueForTail(t, df, tail), 0), 1);
       const stars = starsForP(p);
+      const sem1 = sem(g1);
+      const sem2 = sem(g2);
+
+      latestTTestExport = {
+        summary: [
+          ["Metric", "Value"],
+          ["Test type", testTypeLabel(type)],
+          ["Alternative hypothesis", tailLabel(tail)],
+          ["Group 1 mean", m1],
+          ["Group 1 SEM", sem1],
+          ["Group 1 n", n1],
+          ["Group 2 mean", m2],
+          ["Group 2 SEM", sem2],
+          ["Group 2 n", n2],
+          ["t", t],
+          ["df", df],
+          ["p", p],
+          ["Significance", stars]
+        ],
+        rawData: [
+          ["Index", "Group 1", "Group 2"],
+          ...Array.from({ length: Math.max(g1.length, g2.length) }, (_, i) => [
+            i + 1,
+            g1[i] ?? "",
+            g2[i] ?? ""
+          ])
+        ]
+      };
+
+      document.getElementById("exportButton").disabled = false;
 
       document.getElementById("result").innerHTML = `
         <table class="result-table">
           <tr><th>Metric</th><th>Value</th></tr>
-          <tr><td>Group 1</td><td>${m1.toFixed(3)} &plusmn; ${sem(g1).toFixed(3)} SEM, n = ${n1}</td></tr>
-          <tr><td>Group 2</td><td>${m2.toFixed(3)} &plusmn; ${sem(g2).toFixed(3)} SEM, n = ${n2}</td></tr>
+          <tr><td>Group 1</td><td>${m1.toFixed(3)} &plusmn; ${sem1.toFixed(3)} SEM, n = ${n1}</td></tr>
+          <tr><td>Group 2</td><td>${m2.toFixed(3)} &plusmn; ${sem2.toFixed(3)} SEM, n = ${n2}</td></tr>
           <tr><td>t</td><td>${t.toFixed(3)}</td></tr>
           <tr><td>df</td><td>${df.toFixed(2)}</td></tr>
           <tr><td>p</td><td>${formatP(p)} <span class="stars">${stars}</span></td></tr>
@@ -373,6 +448,26 @@
       `;
 
       drawPlot(g1, g2, m1, m2);
+    }
+
+    function exportExcel() {
+      if (!latestTTestExport) {
+        showMessage("Calculate first, then export the Excel file.");
+        return;
+      }
+
+      if (typeof XLSX === "undefined") {
+        showMessage("Excel export library is not loaded. Check your internet connection.");
+        return;
+      }
+
+      const workbook = XLSX.utils.book_new();
+      const summarySheet = XLSX.utils.aoa_to_sheet(latestTTestExport.summary);
+      const rawSheet = XLSX.utils.aoa_to_sheet(latestTTestExport.rawData);
+
+      XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+      XLSX.utils.book_append_sheet(workbook, rawSheet, "Raw Data");
+      XLSX.writeFile(workbook, "ttest_results.xlsx");
     }
 
     function jitter(index) {
