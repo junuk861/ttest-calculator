@@ -7,6 +7,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
   <style>
     :root {
@@ -105,6 +106,29 @@
 
     button:hover { background: var(--accent-dark); }
 
+    button.secondary {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+    }
+
+    button.secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent-dark);
+      background: #eef4ff;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
     .message {
       display: none;
       margin-bottom: 16px;
@@ -168,6 +192,10 @@
         margin-bottom: 16px;
         padding: 16px;
       }
+
+      .button-row {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -200,7 +228,10 @@
         <label for="g4">Group 4</label>
         <textarea id="g4" placeholder="Optional"></textarea>
 
-        <button onclick="runANOVA()">Calculate</button>
+        <div class="button-row">
+          <button onclick="runANOVA()">Calculate</button>
+          <button id="exportButton" class="secondary" onclick="exportExcel()" disabled>Export Excel</button>
+        </div>
       </section>
 
       <section>
@@ -217,6 +248,8 @@
   </main>
 
   <script>
+    let latestAnovaExport = null;
+
     function parseInput(str) {
       return str
         .split(/[\s,;]+/)
@@ -308,13 +341,33 @@
 
       const p = Math.min(Math.max(1 - jStat.centralF.cdf(F, dfBetween, dfWithin), 0), 1);
       const comparisons = k * (k - 1) / 2;
+      const summaryRows = [
+        ["Metric", "Value"],
+        ["Test", "One-way ANOVA"],
+        ["Number of groups", k],
+        ["Total n", totalN],
+        ["F", F],
+        ["df between", dfBetween],
+        ["df within", dfWithin],
+        ["p", p],
+        ["Significance", starsForP(p)]
+      ];
+      const groupSummaryExport = [["Group", "Mean", "SEM", "n"]];
+      const posthocExport = [["Comparison", "t", "df", "Raw p", "Bonferroni adjusted p", "Significance"]];
+      const rawDataExport = [
+        ["Index", ...groups.map(group => group.name)]
+      ];
 
       let groupRows = groups.map(group => {
         const m = mean(group.values);
+        const groupSem = sem(group.values);
+
+        groupSummaryExport.push([group.name, m, groupSem, group.values.length]);
+
         return `
           <tr>
             <td>${group.name}</td>
-            <td>${m.toFixed(3)} &plusmn; ${sem(group.values).toFixed(3)} SEM</td>
+            <td>${m.toFixed(3)} &plusmn; ${groupSem.toFixed(3)} SEM</td>
             <td>${group.values.length}</td>
           </tr>
         `;
@@ -336,12 +389,14 @@
 
           if (!Number.isFinite(t) || !Number.isFinite(df) || df <= 0) {
             posthocRows += `<tr><td>${a.name} vs ${b.name}</td><td colspan="3">Could not calculate</td></tr>`;
+            posthocExport.push([`${a.name} vs ${b.name}`, "Could not calculate", "", "", "", ""]);
             continue;
           }
 
           const pRaw = Math.min(Math.max(2 * (1 - jStat.studentt.cdf(Math.abs(t), df)), 0), 1);
           const pAdj = Math.min(pRaw * comparisons, 1);
           const stars = starsForP(pAdj);
+          posthocExport.push([`${a.name} vs ${b.name}`, t, df, pRaw, pAdj, stars]);
 
           posthocRows += `
             <tr>
@@ -353,6 +408,23 @@
           `;
         }
       }
+
+      const maxGroupLength = Math.max(...groups.map(group => group.values.length));
+      for (let i = 0; i < maxGroupLength; i++) {
+        rawDataExport.push([
+          i + 1,
+          ...groups.map(group => group.values[i] ?? "")
+        ]);
+      }
+
+      latestAnovaExport = {
+        summary: summaryRows,
+        groupSummary: groupSummaryExport,
+        posthoc: posthocExport,
+        rawData: rawDataExport
+      };
+
+      document.getElementById("exportButton").disabled = false;
 
       document.getElementById("result").innerHTML = `
         <table class="result-table">
@@ -375,6 +447,30 @@
       `;
 
       drawPlot(groups);
+    }
+
+    function exportExcel() {
+      if (!latestAnovaExport) {
+        showMessage("Calculate first, then export the Excel file.");
+        return;
+      }
+
+      if (typeof XLSX === "undefined") {
+        showMessage("Excel export library is not loaded. Check your internet connection.");
+        return;
+      }
+
+      const workbook = XLSX.utils.book_new();
+      const summarySheet = XLSX.utils.aoa_to_sheet(latestAnovaExport.summary);
+      const groupSheet = XLSX.utils.aoa_to_sheet(latestAnovaExport.groupSummary);
+      const posthocSheet = XLSX.utils.aoa_to_sheet(latestAnovaExport.posthoc);
+      const rawSheet = XLSX.utils.aoa_to_sheet(latestAnovaExport.rawData);
+
+      XLSX.utils.book_append_sheet(workbook, summarySheet, "ANOVA");
+      XLSX.utils.book_append_sheet(workbook, groupSheet, "Group Summary");
+      XLSX.utils.book_append_sheet(workbook, posthocSheet, "Post Hoc");
+      XLSX.utils.book_append_sheet(workbook, rawSheet, "Raw Data");
+      XLSX.writeFile(workbook, "anova_results.xlsx");
     }
 
     function jitter(index) {
